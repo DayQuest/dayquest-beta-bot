@@ -43,12 +43,21 @@ async fn main() {
 
     let framework = Framework::builder()
         .options(FrameworkOptions {
-            commands: vec![beta_command::beta_parent_command()],
+            commands: vec![
+                beta_command::beta(),
+                beta_command::get(),
+                beta_command::remove(),
+                beta_command::add(),
+            ],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
+                for command in &framework.options().commands {
+                    info!("Registering command: {}", command.name);
+                }
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                info!("Registered commands globally");
                 Ok(Data {
                     config, 
                     reqwest: Client::new(),
@@ -72,7 +81,7 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: serenity_prelude::Context, ready: Ready) {
-        info!("{} is connected!", ready.user.name);
+        info!("{} is connected", ready.user.name);
         ctx.set_presence(None, OnlineStatus::Online);
     }
 }

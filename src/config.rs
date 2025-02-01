@@ -32,4 +32,5 @@ pub struct Config {
     pub beta_removekey_url: String,
     pub beta_getkey_url: String,
     pub beta_giver_role: u64,
+    pub beta_role: u64,
 }

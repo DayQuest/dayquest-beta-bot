@@ -6,56 +6,31 @@ use crate::{config::{Config, ERROR_MSG, NOT_PERMITTED}, Data};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
-
-
-
-/// Parent command for user management
-#[poise::command(prefix_command, slash_command, subcommands("add", "remove", "get"))]
-pub async fn beta_parent_command(ctx: crate::Context<'_>) -> Result<(), Error> {
-    ctx.reply("Please specify a subcommand: add, remove or get.")
-        .await?;
-    Ok(())
-}
-
-
 //Same content
 type GetResponse = AddResponse;
-
-#[poise::command(prefix_command, slash_command)]
-async fn get(
-    ctx: crate::Context<'_>,
-    #[description = "The user to fetch the key from"] user: User,
-) -> Result<(), Error> {
-    let data = ctx.data();
-    if !is_permitted(&user, ctx, &data.config).await {
-        ctx.defer_ephemeral().await.ok();
-        ctx.say(NOT_PERMITTED).await.ok();
-        return Ok(());
-    }
-    match send_request::<GetResponse>(user.id.get(), &data.config.beta_getkey_url, data).await {
-        Ok(reponse) => {
-            info!("Fetched key: {} of beta user: {}({})", reponse.key, user.name, user.id);
-            ctx.defer_ephemeral().await.ok();
-            ctx.say(format!("{}'s beta key is: ||{}||", user.mention(), reponse.key)).await.ok();
-        
-        },
-        Err(why) => {
-            ctx.reply(ERROR_MSG).await.ok();
-            error!("Failed fetching user's key: {}", why);
-        },
-    }
-   
-    Ok(())
-}
-
 
 #[derive(Deserialize, Serialize, Clone)]
 struct AddResponse {
     key: String
 }
 
-#[poise::command(prefix_command, slash_command)]
-async fn add(
+
+#[derive(Deserialize, Serialize, Clone)]
+struct RemoveResponse {}
+
+#[poise::command(
+    slash_command,
+    subcommands("add", "remove", "get"),
+    guild_only
+)]
+pub async fn beta(ctx: crate::Context<'_>) -> Result<(), Error> {
+    ctx.say("Please specify a subcommand: add, remove or get.")
+        .await?;
+    Ok(())
+}
+
+#[poise::command(slash_command)]
+pub async fn add(
     ctx: crate::Context<'_>,
     #[description = "The user to add"] user: User,
 ) -> Result<(), Error> {
@@ -92,10 +67,8 @@ async fn add(
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-struct RemoveResponse {}
-#[poise::command(prefix_command, slash_command)]
-async fn remove(
+#[poise::command(slash_command)]
+pub async fn remove(
     ctx: crate::Context<'_>,
     #[description = "The user to remove"] user: User,
 ) -> Result<(), Error> {
@@ -117,6 +90,33 @@ async fn remove(
         Err(why) => {
             ctx.reply(ERROR_MSG).await.ok();
             error!("Failed removing beta user: {}", why);
+        },
+    }
+   
+    Ok(())
+}
+
+#[poise::command(slash_command)]
+pub async fn get(
+    ctx: crate::Context<'_>,
+    #[description = "The user to fetch the key from"] user: User,
+) -> Result<(), Error> {
+    let data = ctx.data();
+    if !is_permitted(&user, ctx, &data.config).await {
+        ctx.defer_ephemeral().await.ok();
+        ctx.say(NOT_PERMITTED).await.ok();
+        return Ok(());
+    }
+    match send_request::<GetResponse>(user.id.get(), &data.config.beta_getkey_url, data).await {
+        Ok(reponse) => {
+            info!("Fetched key: {} of beta user: {}({})", reponse.key, user.name, user.id);
+            ctx.defer_ephemeral().await.ok();
+            ctx.say(format!("{}'s beta key is: ||{}||", user.mention(), reponse.key)).await.ok();
+        
+        },
+        Err(why) => {
+            ctx.reply(ERROR_MSG).await.ok();
+            error!("Failed fetching user's key: {}", why);
         },
     }
    
