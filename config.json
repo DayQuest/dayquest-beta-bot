@@ -1,4 +1,5 @@
 {
-  "beta_add_url": "api.dayquest.de/api/beta/new",
-  "beta_remove_url": "api.dayquest.de/api/beta/new" 
+  "beta_addkey_url": "api.dayquest.de/api/beta/new-key",
+  "beta_removekey_url": "api.dayquest.de/api/beta/remove-key",
+  "beta_getkey_url": "api.dayquest.de/api/beta/get-key" 
 }

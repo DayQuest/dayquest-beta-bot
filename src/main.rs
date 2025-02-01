@@ -1,10 +1,11 @@
-use std::{env, process::exit, time::Instant};
+use std::{env, process::exit, sync::Arc, time::Instant};
 
 use colored::Colorize;
-use config::TOKEN_KEY;
+use config::{Config, ConfigData, TOKEN_KEY};
 use env_logger::{Builder, Env};
 use log::{error, info};
-use serenity::{all::GatewayIntents, client, Client, Error};
+use serenity::{all::{EventHandler, GatewayIntents}, prelude::TypeMapKey, Client, Error};
+mod beta_command;
 mod config;
 
 #[tokio::main]
@@ -25,16 +26,25 @@ async fn main() -> Result<(), Error> {
     }
 
     let token = env::var(TOKEN_KEY).expect("Unable to find token in enviroment");
-    let mut client = Client::builder(&token, GatewayIntents::all()).await?;
+    let mut client = Client::builder(&token, GatewayIntents::all())
+        .event_handler(beta_command::Handler)
+        .await?;
 
     let config = config::load();
-    info!("Bot running, took: {} ms", start_time.elapsed().as_millis());
-    
+
+    {
+        let mut data = client.data.write().await;
+        data.insert::<ConfigData>(config);
+    }
+
+  
+
     if let Err(why) = client.start().await {
         error!("Failed to start bot: {}", why);
     }
     Ok(())
 }
+
 
 fn setup_logging() {
     Builder::from_env(Env::default())
