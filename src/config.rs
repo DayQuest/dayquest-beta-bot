@@ -33,4 +33,5 @@ pub struct Config {
     pub beta_getkey_url: String,
     pub beta_giver_role: u64,
     pub beta_role: u64,
+    pub guild_id: u64
 }

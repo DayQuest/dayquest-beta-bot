@@ -4,20 +4,7 @@ use crate::{
 };
 use log::{error, info, warn};
 use poise::serenity_prelude::{CreateMessage, Mentionable, User};
-use serde::{Deserialize, Serialize};
-
 type Error = Box<dyn std::error::Error + Send + Sync>;
-
-//Same content
-type GetResponse = AddResponse;
-
-#[derive(Deserialize, Serialize, Clone)]
-struct AddResponse {
-    key: String,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-struct RemoveResponse {}
 
 #[poise::command(slash_command, subcommands("add", "remove", "get"), guild_only)]
 pub async fn beta(ctx: crate::Context<'_>) -> Result<(), Error> {
@@ -39,12 +26,12 @@ pub async fn add(
         return Ok(());
     }
 
-    match send_request::<AddResponse>(user.id.get(), &data.config.beta_addkey_url, data).await {
-        Ok(reponse) => {
+    match send_request(user.id.get(), &data.config.beta_addkey_url, data).await {
+        Ok(key) => {
             info!("Added beta user: {}({})", user.name, user.id);
 
             if let Err(why) = user.dm(ctx.http(), CreateMessage::new()
-            .content(format!("✅ Du wurdest ins Betaprogramm aufgenommen! Bitte teile deinen Betakey niemals mit dritten! Dein Betakey: ||{}||", reponse.key)))
+            .content(format!("✅ Du wurdest ins Betaprogramm aufgenommen! Bitte teile deinen Betakey niemals mit dritten! Dein Betakey: ||{}||", key)))
             .await {
                 warn!("Unable to send beta key dm to user {} ({}): {}", user.name, user.id.get(), why);
                 ctx.reply("Unable to send beta dm (dms deactivated?)").await.ok();
@@ -78,7 +65,7 @@ pub async fn remove(
         ctx.say(NOT_PERMITTED).await.ok();
         return Ok(());
     }
-    match send_request::<RemoveResponse>(user.id.get(), &data.config.beta_removekey_url, data).await
+    match send_request(user.id.get(), &data.config.beta_removekey_url, data).await
     {
         Ok(_) => {
             info!("Removed beta user: {}({})", user.name, user.id.get());
@@ -111,17 +98,17 @@ pub async fn get(
         ctx.say(NOT_PERMITTED).await.ok();
         return Ok(());
     }
-    match send_request::<GetResponse>(user.id.get(), &data.config.beta_getkey_url, data).await {
-        Ok(reponse) => {
+    match send_request(user.id.get(), &data.config.beta_getkey_url, data).await {
+        Ok(key) => {
             info!(
                 "Fetched key: {} of beta user: {}({})",
-                reponse.key, user.name, user.id
+                key, user.name, user.id
             );
             ctx.defer_ephemeral().await.ok();
             ctx.say(format!(
                 "{}'s beta key is: ||{}||",
                 user.mention(),
-                reponse.key
+                key
             ))
             .await
             .ok();
@@ -135,17 +122,12 @@ pub async fn get(
     Ok(())
 }
 
-async fn send_request<T>(discord_id: u64, url: &String, data: &Data) -> Result<T, String>
-where
-    T: serde::de::DeserializeOwned,
-{
+async fn send_request(discord_id: u64, url: &String, data: &Data) -> Result<String, String> {
     match data
         .reqwest
         .post(url)
         .bearer_auth(data.jwt.clone())
-        .json(&serde_json::json!({
-            "dsiscordId": discord_id
-        }))
+        .json(&serde_json::json!({ "discordId": discord_id }))
         .send()
         .await
     {
@@ -154,10 +136,7 @@ where
                 return Err(format!("Got status code: {}", response.status()));
             }
 
-            response
-                .json::<T>()
-                .await
-                .map_err(|e| format!("Failed to deserialize response: {}", e))
+            return Ok(response.text().await.unwrap());
         }
 
         Err(why) => {

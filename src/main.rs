@@ -45,15 +45,13 @@ async fn main() {
         .options(FrameworkOptions {
             commands: vec![
                 beta_command::beta(),
-                beta_command::get(),
-                beta_command::remove(),
-                beta_command::add(),
             ],
             ..Default::default()
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_in_guild(ctx, &framework.options().commands, 1109243019158364210.into()).await?;
+                poise::builtins::register_in_guild(ctx, &framework.options().commands, config.guild_id.into()).await?;
+
                 info!("Registered commands globally");
                 Ok(Data {
                     config, 
