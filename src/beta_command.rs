@@ -47,7 +47,7 @@ pub async fn add(
                 ctx.reply("Unable to send beta dm (dms deactivated?)").await.ok();
             }
             ctx.reply(format!(
-                "✅: User {} added to the beta program.",
+                "✅: User {} added to the beta program",
                 user.mention()
             ))
             .await?;
@@ -86,7 +86,7 @@ pub async fn remove(
         if res.status() == StatusCode::OK {
             info!("Removed beta user: {}({})", user.name, user.id.get());
             ctx.reply(format!(
-                "✅: User {} removed from beta program.",
+                "✅: User {} removed from beta program",
                 user.mention()
             ))
             .await?;
