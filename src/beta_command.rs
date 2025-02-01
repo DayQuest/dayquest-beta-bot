@@ -1,8 +1,10 @@
-
+use crate::{
+    config::{Config, ERROR_MSG, NOT_PERMITTED},
+    Data,
+};
 use log::{error, info, warn};
 use poise::serenity_prelude::{CreateMessage, Mentionable, User};
 use serde::{Deserialize, Serialize};
-use crate::{config::{Config, ERROR_MSG, NOT_PERMITTED}, Data};
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
@@ -11,18 +13,13 @@ type GetResponse = AddResponse;
 
 #[derive(Deserialize, Serialize, Clone)]
 struct AddResponse {
-    key: String
+    key: String,
 }
-
 
 #[derive(Deserialize, Serialize, Clone)]
 struct RemoveResponse {}
 
-#[poise::command(
-    slash_command,
-    subcommands("add", "remove", "get"),
-    guild_only
-)]
+#[poise::command(slash_command, subcommands("add", "remove", "get"), guild_only)]
 pub async fn beta(ctx: crate::Context<'_>) -> Result<(), Error> {
     ctx.say("Please specify a subcommand: add, remove or get.")
         .await?;
@@ -57,13 +54,16 @@ pub async fn add(
                 user.mention()
             ))
             .await?;
-        },
+            if let Err(why) = change_beta_role(ctx, &user, true, data.config.beta_role).await {
+                warn!("Failed to update beta role: {}", why);
+            }
+        }
         Err(why) => {
             ctx.reply(ERROR_MSG).await.ok();
             error!("Failed adding beta user: {}", why);
-        },
+        }
     }
-   
+
     Ok(())
 }
 
@@ -78,7 +78,8 @@ pub async fn remove(
         ctx.say(NOT_PERMITTED).await.ok();
         return Ok(());
     }
-    match send_request::<RemoveResponse>(user.id.get(), &data.config.beta_removekey_url, data).await {
+    match send_request::<RemoveResponse>(user.id.get(), &data.config.beta_removekey_url, data).await
+    {
         Ok(_) => {
             info!("Removed beta user: {}({})", user.name, user.id.get());
             ctx.reply(format!(
@@ -86,13 +87,16 @@ pub async fn remove(
                 user.mention()
             ))
             .await?;
-        },
+            if let Err(why) = change_beta_role(ctx, &user, false, data.config.beta_role).await {
+                warn!("Failed to update beta role: {}", why);
+            }
+        }
         Err(why) => {
             ctx.reply(ERROR_MSG).await.ok();
             error!("Failed removing beta user: {}", why);
-        },
+        }
     }
-   
+
     Ok(())
 }
 
@@ -109,21 +113,27 @@ pub async fn get(
     }
     match send_request::<GetResponse>(user.id.get(), &data.config.beta_getkey_url, data).await {
         Ok(reponse) => {
-            info!("Fetched key: {} of beta user: {}({})", reponse.key, user.name, user.id);
+            info!(
+                "Fetched key: {} of beta user: {}({})",
+                reponse.key, user.name, user.id
+            );
             ctx.defer_ephemeral().await.ok();
-            ctx.say(format!("{}'s beta key is: ||{}||", user.mention(), reponse.key)).await.ok();
-        
-        },
+            ctx.say(format!(
+                "{}'s beta key is: ||{}||",
+                user.mention(),
+                reponse.key
+            ))
+            .await
+            .ok();
+        }
         Err(why) => {
             ctx.reply(ERROR_MSG).await.ok();
             error!("Failed fetching user's key: {}", why);
-        },
+        }
     }
-   
+
     Ok(())
 }
-
-
 
 async fn send_request<T>(discord_id: u64, url: &String, data: &Data) -> Result<T, String>
 where
@@ -158,5 +168,33 @@ where
 }
 
 async fn is_permitted(user: &User, ctx: crate::Context<'_>, config: &Config) -> bool {
-    user.has_role(ctx.http(), ctx.guild_id().unwrap().get(), config.beta_giver_role).await.ok().unwrap()
+    user.has_role(
+        ctx.http(),
+        ctx.guild_id().unwrap().get(),
+        config.beta_giver_role,
+    )
+    .await
+    .ok()
+    .unwrap()
+}
+
+async fn change_beta_role(
+    ctx: crate::Context<'_>,
+    user: &User,
+    add: bool,
+    beta_role: u64,
+) -> Result<(), Error> {
+    let member = ctx
+        .guild_id()
+        .unwrap()
+        .member(ctx.http(), user.id)
+        .await
+        .unwrap();
+    if add {
+        member.add_role(ctx.http(), beta_role).await?;
+    } else {
+        member.remove_role(ctx.http(), beta_role).await?;
+    }
+
+    Ok(())
 }

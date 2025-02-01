@@ -53,10 +53,7 @@ async fn main() {
         })
         .setup(|ctx, _ready, framework| {
             Box::pin(async move {
-                for command in &framework.options().commands {
-                    info!("Registering command: {}", command.name);
-                }
-                poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                poise::builtins::register_in_guild(ctx, &framework.options().commands, 1109243019158364210.into()).await?;
                 info!("Registered commands globally");
                 Ok(Data {
                     config, 

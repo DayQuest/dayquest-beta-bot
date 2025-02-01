@@ -1,7 +1,8 @@
 {
+  "guild_id": 1269021149426094081,
+  "beta_giver_role": 1292140581815844974,
+  "beta_role": 1335249921326190612,
   "beta_addkey_url": "api.dayquest.de/api/beta/new-key",
   "beta_removekey_url": "api.dayquest.de/api/beta/remove-key",
-  "beta_getkey_url": "api.dayquest.de/api/beta/get-key",
-  "beta_giver_role": 1317556115353112657,
-  "beta_role": 1280617949463580785
+  "beta_getkey_url": "api.dayquest.de/api/beta/get-key"
 }
