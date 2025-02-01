@@ -3,10 +3,13 @@ use figment::{
     Figment,
 };
 use log::info;
+use poise::serenity_prelude::prelude::TypeMapKey;
 use serde::{Deserialize, Serialize};
-use serenity::prelude::TypeMapKey;
 
-pub const TOKEN_KEY: &str = "TOKEN";
+pub const BOT_TOKEN_KEY: &str = "TOKEN";
+pub const JWT_TOKEN_KEY: &str = "JWT_TOKEN";
+pub const ERROR_MSG: &str = "An error occurred. Please check logs!";
+pub const NOT_PERMITTED: &str = "You are not permitted to do that!";
 const FILE_PATH: &str = "config.json";
 
 pub fn load() -> Config {
@@ -18,9 +21,8 @@ pub fn load() -> Config {
     config
 }
 
-pub struct ConfigData;
 
-impl TypeMapKey for ConfigData {
+impl TypeMapKey for Config {
     type Value = Config;
 }
 
@@ -29,4 +31,5 @@ pub struct Config {
     pub beta_addkey_url: String,
     pub beta_removekey_url: String,
     pub beta_getkey_url: String,
+    pub beta_giver_role: u64,
 }

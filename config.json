@@ -1,5 +1,6 @@
 {
   "beta_addkey_url": "api.dayquest.de/api/beta/new-key",
   "beta_removekey_url": "api.dayquest.de/api/beta/remove-key",
-  "beta_getkey_url": "api.dayquest.de/api/beta/get-key" 
+  "beta_getkey_url": "api.dayquest.de/api/beta/get-key",
+  "beta_giver_role": 1317556115353112657
 }
