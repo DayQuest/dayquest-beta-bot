@@ -33,7 +33,7 @@ pub async fn add(
 ) -> Result<(), Error> {
     let data = ctx.data();
 
-    if !is_permitted(&user, ctx, &data.config).await {
+    if !is_permitted(&ctx.author(), ctx, &data.config).await {
         ctx.defer_ephemeral().await.ok();
         ctx.say(NOT_PERMITTED).await.ok();
         return Ok(());
@@ -73,7 +73,7 @@ pub async fn remove(
     #[description = "The user to remove"] user: User,
 ) -> Result<(), Error> {
     let data = ctx.data();
-    if !is_permitted(&user, ctx, &data.config).await {
+    if !is_permitted(&ctx.author(), ctx, &data.config).await {
         ctx.defer_ephemeral().await.ok();
         ctx.say(NOT_PERMITTED).await.ok();
         return Ok(());
@@ -106,7 +106,7 @@ pub async fn get(
     #[description = "The user to fetch the key from"] user: User,
 ) -> Result<(), Error> {
     let data = ctx.data();
-    if !is_permitted(&user, ctx, &data.config).await {
+    if !is_permitted(&ctx.author(), ctx, &data.config).await {
         ctx.defer_ephemeral().await.ok();
         ctx.say(NOT_PERMITTED).await.ok();
         return Ok(());
@@ -144,7 +144,7 @@ where
         .post(url)
         .bearer_auth(data.jwt.clone())
         .json(&serde_json::json!({
-            "discord_id": discord_id
+            "dsiscordId": discord_id
         }))
         .send()
         .await
@@ -161,7 +161,6 @@ where
         }
 
         Err(why) => {
-            error!("Error while sending request: {}", why);
             Err(format!("Request failed: {}", why))
         }
     }
