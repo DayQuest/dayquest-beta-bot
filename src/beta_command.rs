@@ -93,11 +93,11 @@ pub async fn remove(
 
             if let Err(why) = change_beta_role(ctx, &user, false, data.config.beta_role).await {
                 warn!("Failed to update beta role: {}", why);
-            } else {
-                print_unexpected_status(ctx, res).await?;
-                return Ok(());
             }
 
+            return Ok(());
+        } else {
+            print_unexpected_status(ctx, res).await?;
             return Ok(());
         }
     }
