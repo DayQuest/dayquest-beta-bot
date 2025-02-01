@@ -4,6 +4,7 @@ use crate::{
 };
 use log::{error, info, warn};
 use poise::serenity_prelude::{CreateMessage, Mentionable, User};
+use reqwest::{Response, StatusCode};
 type Error = Box<dyn std::error::Error + Send + Sync>;
 
 #[poise::command(slash_command, subcommands("add", "remove", "get"), guild_only)]
@@ -26,29 +27,38 @@ pub async fn add(
         return Ok(());
     }
 
-    match send_request(user.id.get(), &data.config.beta_addkey_url, data).await {
-        Ok(key) => {
-            info!("Added beta user: {}({})", user.name, user.id);
+    if let Some(res) = send_request(user.id.get(), &data.config.beta_addkey_url, data, ctx).await {
 
+        if res.status() == StatusCode::UNPROCESSABLE_ENTITY {
+            ctx.defer_ephemeral().await?;
+            ctx.say(format!("❌: {} is in the beta program already", user.mention())).await?;
+            return Ok(());
+        }
+
+
+        if res.status() == StatusCode::OK {
+            let key = res.text().await.unwrap();
+            info!("Added beta user: {}({}), key: {}", user.name, user.id, key);
+    
             if let Err(why) = user.dm(ctx.http(), CreateMessage::new()
-            .content(format!("✅ Du wurdest ins Betaprogramm aufgenommen! Bitte teile deinen Betakey niemals mit dritten! Dein Betakey: ||{}||", key)))
+            .content(format!("✅ Du wurdest ins Betaprogramm aufgenommen!\n Bitte teile deinen Betakey **niemals** mit dritten!\n Dein Betakey: ||{}||", key)))
             .await {
                 warn!("Unable to send beta key dm to user {} ({}): {}", user.name, user.id.get(), why);
                 ctx.reply("Unable to send beta dm (dms deactivated?)").await.ok();
             }
             ctx.reply(format!(
-                "User {} added to the beta program.",
+                "✅: User {} added to the beta program.",
                 user.mention()
             ))
             .await?;
             if let Err(why) = change_beta_role(ctx, &user, true, data.config.beta_role).await {
                 warn!("Failed to update beta role: {}", why);
             }
+        } else {
+            print_unexpected_status(ctx, res).await?;
+            return Ok(());
         }
-        Err(why) => {
-            ctx.reply(ERROR_MSG).await.ok();
-            error!("Failed adding beta user: {}", why);
-        }
+   
     }
 
     Ok(())
@@ -61,26 +71,34 @@ pub async fn remove(
 ) -> Result<(), Error> {
     let data = ctx.data();
     if !is_permitted(&ctx.author(), ctx, &data.config).await {
-        ctx.defer_ephemeral().await.ok();
-        ctx.say(NOT_PERMITTED).await.ok();
+        ctx.defer_ephemeral().await?;
+        ctx.say(NOT_PERMITTED).await?;
         return Ok(());
     }
-    match send_request(user.id.get(), &data.config.beta_removekey_url, data).await
-    {
-        Ok(_) => {
+
+    if let Some(res) = send_request(user.id.get(), &data.config.beta_removekey_url, data, ctx).await {
+        if res.status() == StatusCode::UNPROCESSABLE_ENTITY {
+            ctx.defer_ephemeral().await?;
+            ctx.say(format!("❌: {} is not in the beta program", user.mention())).await?;
+            return Ok(());
+        }
+
+        if res.status() == StatusCode::OK {
             info!("Removed beta user: {}({})", user.name, user.id.get());
             ctx.reply(format!(
-                "User {} removed from beta program.",
+                "✅: User {} removed from beta program.",
                 user.mention()
             ))
             .await?;
+
             if let Err(why) = change_beta_role(ctx, &user, false, data.config.beta_role).await {
                 warn!("Failed to update beta role: {}", why);
+            } else {
+                print_unexpected_status(ctx, res).await?;
+                return Ok(());
             }
-        }
-        Err(why) => {
-            ctx.reply(ERROR_MSG).await.ok();
-            error!("Failed removing beta user: {}", why);
+
+            return Ok(());
         }
     }
 
@@ -94,35 +112,56 @@ pub async fn get(
 ) -> Result<(), Error> {
     let data = ctx.data();
     if !is_permitted(&ctx.author(), ctx, &data.config).await {
-        ctx.defer_ephemeral().await.ok();
-        ctx.say(NOT_PERMITTED).await.ok();
+        ctx.defer_ephemeral().await?;
+        ctx.say(NOT_PERMITTED).await?;
         return Ok(());
     }
-    match send_request(user.id.get(), &data.config.beta_getkey_url, data).await {
-        Ok(key) => {
+    ctx.defer_ephemeral().await?;
+    if let Some(res) = send_request(user.id.get(), &data.config.beta_getkey_url, data, ctx).await {
+        // later change to 404 when changed in api
+        if res.status() == StatusCode::UNPROCESSABLE_ENTITY {
+            ctx.defer_ephemeral().await?;
+            ctx.say(format!("❌: {} is not in the beta program", user.mention()))
+                .await?;
+            return Ok(());
+        }
+
+        if res.status() == StatusCode::OK {
+            let key = res.text().await.unwrap();
             info!(
                 "Fetched key: {} of beta user: {}({})",
                 key, user.name, user.id
             );
             ctx.defer_ephemeral().await.ok();
-            ctx.say(format!(
-                "{}'s beta key is: ||{}||",
-                user.mention(),
-                key
-            ))
-            .await
-            .ok();
-        }
-        Err(why) => {
-            ctx.reply(ERROR_MSG).await.ok();
-            error!("Failed fetching user's key: {}", why);
+            ctx.say(format!("✅: {}'s beta key is: ||{}||", user.mention(), key))
+                .await?;
+            return Ok(());
+        } else {
+            print_unexpected_status(ctx, res).await?;
+            return Ok(());
         }
     }
 
     Ok(())
 }
 
-async fn send_request(discord_id: u64, url: &String, data: &Data) -> Result<String, String> {
+
+async fn print_unexpected_status(ctx: crate::Context<'_>, res: Response) -> Result<(), Error> {
+    ctx.say(format!(
+        "{ERROR_MSG}\nError (Unexpected StatusCode): ```{:?}```",
+        res.error_for_status()
+    ))
+    .await?;
+
+    Ok(())
+}
+
+async fn send_request(
+    discord_id: u64,
+    url: &String,
+    data: &Data,
+    ctx: crate::Context<'_>,
+) -> Option<Response> {
     match data
         .reqwest
         .post(url)
@@ -131,16 +170,11 @@ async fn send_request(discord_id: u64, url: &String, data: &Data) -> Result<Stri
         .send()
         .await
     {
-        Ok(response) => {
-            if !response.status().is_success() {
-                return Err(format!("Got status code: {}", response.status()));
-            }
-
-            return Ok(response.text().await.unwrap());
-        }
-
+        Ok(response) => Some(response),
         Err(why) => {
-            Err(format!("Request failed: {}", why))
+            ctx.reply(ERROR_MSG).await.ok();
+            error!("Failed while sending request: {}", why);
+            None
         }
     }
 }
