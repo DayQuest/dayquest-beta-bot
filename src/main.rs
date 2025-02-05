@@ -56,7 +56,8 @@ async fn main() {
                 )
                 .await?;
 
-                info!("Registered commands globally");
+                let guild = ctx.http.get_guild(config.guild_id.into()).await.expect("Failed to get guild id");
+                info!("Registered commands in guild: {}", guild.name);
                 Ok(Data {
                     config,
                     reqwest: Client::new(),
