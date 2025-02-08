@@ -27,6 +27,7 @@ impl TypeMapKey for Config {
 }
 
 #[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Config {
     pub beta_addkey_url: String,
     pub beta_removekey_url: String,
