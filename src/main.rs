@@ -1,4 +1,4 @@
-use std::{env, process::exit, time::Instant};
+use std::{env, process::exit};
 
 use colored::Colorize;
 use config::{Config, BOT_TOKEN_KEY, JWT_TOKEN_KEY};
@@ -6,7 +6,7 @@ use env_logger::{Builder, Env};
 use log::info;
 use poise::{
     serenity_prelude::{
-        self, async_trait, prelude::TypeMapKey, ClientBuilder, EventHandler, GatewayIntents, OnlineStatus, Ready
+        self, async_trait, ClientBuilder, EventHandler, GatewayIntents, OnlineStatus, Ready
     },
     Framework, FrameworkOptions,
 };
@@ -24,7 +24,6 @@ pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[tokio::main]
 async fn main() {
-    let start_time = Instant::now();
     ctrlc::set_handler(move || {
         info!("{}", "Stopping bot, Bye :)".on_red());
         exit(0);
@@ -73,25 +72,14 @@ async fn main() {
         .await
         .unwrap();
 
-    {
-        let mut data = client.data.write().await;
-        data.insert::<StartTime>(start_time);
-    }
     client.start().await.unwrap();
 }
-
-struct StartTime;
-impl TypeMapKey for StartTime {
-    type Value = Instant;
-}
-
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn ready(&self, ctx: serenity_prelude::Context, ready: Ready) {
-        let data = ctx.data.read().await;
-        info!("{} is connected, took: {} ms", ready.user.name, data.get::<StartTime>().unwrap().elapsed().as_millis());
+        info!("{} is connected", ready.user.name);
         ctx.set_presence(None, OnlineStatus::Online);
     }
 }
